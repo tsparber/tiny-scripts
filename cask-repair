@@ -7,6 +7,7 @@ remote_pull='upstream' # use 'upstream' as default remote to pull from
 remote_push='origin' # use 'origin' as default remote to push to
 show_home='false' # by default, do not open the cask's homepage
 show_appcast='false' # by default, do not open the cask's appcast
+gpg_sign='' # by default, do not GPG sign commits
 warning_messages=()
 
 # check if 'hub' is installed and configured
@@ -40,6 +41,7 @@ usage() {
       -c, --closes-issue <number>    Adds 'Closes #<number>.' to the commit message.
       -b, --blind-submit             Submit cask without asking for confirmation, if there are no errors.
       -d, --delete-branches          Deletes all local and remote branches named like cask-repair_update-<word>.
+      -S, --gpg-sign                 GPG-sign commits (https://help.github.com/articles/signing-commits-using-gpg).
       -h, --help                     Show this help.
   " | sed -E 's/^ {4}//'
 }
@@ -86,6 +88,9 @@ while [[ "${1}" ]]; do
     -d | --delete-branches)
       can_run_without_arguments='true'
       delete_created_branches='true'
+      ;;
+    -S | --gpg-sign)
+      gpg_sign='--gpg-sign'
       ;;
     -*)
       syntax_error "unrecognized option: ${1}"
@@ -389,7 +394,7 @@ cask_version="$(brew cask _stanza version ${cask_file})"
 readonly commit_message="updated ${cask_name} (${cask_version})"
 readonly hub_message="$(echo -e "${commit_message}\n\n### Changes to a cask\n#### Editing an existing cask\n\n- [x] Commit message includes cask’s name (and new version, if applicable).\n- [x] \`brew cask audit --download {{cask_file}}\` is error-free.\n- [x] \`brew cask style --fix {{cask_file}}\` left no offenses.")"
 
-git commit "${cask_file}" --message "${commit_message}" --quiet
+git commit ${gpg_sign} "${cask_file}" --message "${commit_message}" --quiet
 git push "${remote_push}" "${cask_branch}" --quiet
 git branch --set-upstream-to "${remote_push}" --quiet # needed as workaround for hub to work with certain .gitconfig options to push default: https://github.com/github/hub/issues/789#issuecomment-72553866; after that issue is fixed, this line may likely be completely removed
 [[ -z "${issue_to_close}" ]] && pr_link=$(hub pull-request -b "${submit_pr_to}" -m "${hub_message}") || pr_link=$(hub pull-request -b "${submit_pr_to}" -m "$(echo -e "${hub_message}\n\n---\n\nCloses #${issue_to_close}.")")
